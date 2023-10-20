@@ -1,0 +1,189 @@
+WITH subquery1 AS
+  (SELECT id_persona,
+          max(ranking) AS ranking
+   FROM
+     (SELECT *,
+             CASE
+                 WHEN trim(sem_indicador_banca) = 'verde' THEN 1
+                 WHEN trim(sem_indicador_banca) = 'amarillo' THEN 2
+                 WHEN trim(sem_indicador_banca) = 'rojo' THEN 3
+             END AS ranking
+      FROM
+        (SELECT id_persona,
+                id_mot_ant_neg,
+                CASE
+                    WHEN id_mot_ant_neg IN ('01','02','17','13','14','12','98','08') THEN "rojo"
+                    WHEN id_mot_ant_neg IN ('11','10') THEN "amarillo"
+                    WHEN id_mot_ant_neg IN ('21','99','05','04','09','28','29') THEN "verde"
+                    ELSE "verde"
+                END AS sem_indicador_banca
+         FROM de_bsj_2cur.ft_riesgos_antecedentes_negativos)parte1)parte2
+   GROUP BY id_persona),
+     subquery2 AS
+  (SELECT *,
+          CASE
+              WHEN trim(sem_indicador_banca) = 'verde' THEN 1
+              WHEN trim(sem_indicador_banca) = 'amarillo' THEN 2
+              WHEN trim(sem_indicador_banca) = 'rojo' THEN 3
+          END AS ranking
+   FROM
+     (SELECT id_persona,
+                CASE
+                    WHEN id_mot_ant_neg IN ('01','02','17','13','14','12','98','08') THEN "rojo"
+                    WHEN id_mot_ant_neg IN ('11','10') THEN "amarillo"
+                    WHEN id_mot_ant_neg IN ('21','99','05','04','09','28','29') THEN "verde"
+                ELSE "verde"
+             END AS sem_indicador_banca
+      FROM de_bsj_2cur.ft_riesgos_antecedentes_negativos)parte1),
+     semaforo AS
+  (SELECT DISTINCT s1.id_persona,
+                   s2.sem_indicador_banca
+   FROM subquery1 s1
+   LEFT JOIN subquery2 s2 ON s1.id_persona = s2.id_persona
+   AND s1.ranking = s2.ranking),
+    curado AS
+    (SELECT id_persona,
+          max(es_marca_cartera_vendida) AS es_marca_cartera_vendida,
+          max(es_dni_cuestionado) AS es_dni_cuestionado,
+          max(es_cliente_factura_apocrifa) AS es_cliente_factura_apocrifa,
+          max(es_baja_contable) AS es_baja_contable,
+          max(es_oficios_judiciales) AS es_oficios_judiciales,
+          max(es_prestamo_reprogramado) AS es_prestamo_reprogramado,
+          max(es_inhabilitado_cambios_bcra) AS es_inhabilitado_cambios_bcra,
+          max(es_irrecuperable_cuenta_orden) AS es_irrecuperable_cuenta_orden,
+          max(es_marca_legales) AS es_marca_legales
+   FROM
+     (SELECT cur.id_persona,
+             0 AS es_marca_cartera_vendida,
+             0 AS es_dni_cuestionado,
+             CASE
+                 WHEN cast(cur.id_mot_ant_neg AS int) IN (064) THEN 1
+                 ELSE 0
+             END AS es_cliente_factura_apocrifa,
+             CASE
+                 WHEN cast(cur.id_mot_ant_neg AS int) IN (048) THEN 1
+                 ELSE 0
+             END AS es_baja_contable,
+             CASE
+                 WHEN cast(cur.id_mot_ant_neg AS int) IN (027) THEN 1
+                 ELSE 0
+             END AS es_oficios_judiciales,
+             CASE
+                 WHEN cast(cur.id_mot_ant_neg AS int) IN (067) THEN 1
+                 ELSE 0
+             END AS es_prestamo_reprogramado,
+             CASE
+                 WHEN cast(cur.id_mot_ant_neg AS int) IN (002) THEN 1
+                 ELSE 0
+             END AS es_inhabilitado_cambios_bcra,
+             0 AS es_irrecuperable_cuenta_orden,
+             CASE
+                 WHEN cast(cur.id_mot_ant_neg AS int) IN (008) THEN 1
+                 ELSE 0
+             END AS es_marca_legales
+      FROM de_bsj_2cur.ft_riesgos_antecedentes_negativos cur)parte1
+   GROUP BY id_persona),
+     total_curado AS
+  (SELECT c.id_persona,
+          c.es_marca_cartera_vendida,
+          s.sem_indicador_banca AS sem_indicador_banca,
+          c.es_dni_cuestionado,
+          c.es_cliente_factura_apocrifa,
+          c.es_baja_contable,
+          c.es_oficios_judiciales,
+          c.es_prestamo_reprogramado,
+          c.es_inhabilitado_cambios_bcra,
+          c.es_irrecuperable_cuenta_orden,
+          c.es_marca_legales
+   FROM curado c
+   LEFT JOIN semaforo s ON c.id_persona = s.id_persona),
+     total_clientes AS
+  (SELECT no_cli.nro_documento AS id_persona,
+          CASE
+              WHEN es_marca_cartera_vendida IS NULL THEN 0
+              ELSE es_marca_cartera_vendida
+          END AS es_marca_cartera_vendida,
+          CASE
+              WHEN sem_indicador_banca IS NULL THEN 'verde'
+              ELSE sem_indicador_banca
+          END AS sem_indicador_banca,
+          CASE
+              WHEN es_dni_cuestionado IS NULL THEN 0
+              ELSE es_dni_cuestionado
+          END AS es_dni_cuestionado,
+          CASE
+              WHEN es_cliente_factura_apocrifa IS NULL THEN 0
+              ELSE es_cliente_factura_apocrifa
+          END AS es_cliente_factura_apocrifa,
+          CASE
+              WHEN es_baja_contable IS NULL THEN 0
+              ELSE es_baja_contable
+          END AS es_baja_contable,
+          CASE
+              WHEN es_oficios_judiciales IS NULL THEN 0
+              ELSE es_oficios_judiciales
+          END AS es_oficios_judiciales,
+          CASE
+              WHEN es_prestamo_reprogramado IS NULL THEN 0
+              ELSE es_prestamo_reprogramado
+          END AS es_prestamo_reprogramado,
+          CASE
+              WHEN es_inhabilitado_cambios_bcra IS NULL THEN 0
+              ELSE es_inhabilitado_cambios_bcra
+          END AS es_inhabilitado_cambios_bcra,
+          CASE
+              WHEN es_irrecuperable_cuenta_orden IS NULL THEN 0
+              ELSE es_irrecuperable_cuenta_orden
+          END AS es_irrecuperable_cuenta_orden,
+          CASE
+              WHEN es_marca_legales IS NULL THEN 0
+              ELSE es_marca_legales
+          END AS es_marca_legales
+   FROM de_bsj_2cur.rel_cliente_core_documentos no_cli
+   LEFT JOIN total_curado cur ON no_cli.nro_documento = cur.id_persona),
+     total_no_clientes AS
+  (SELECT no_cli.id_persona AS id_persona,
+          CASE
+              WHEN es_marca_cartera_vendida IS NULL THEN 0
+              ELSE es_marca_cartera_vendida
+          END AS es_marca_cartera_vendida,
+          CASE
+              WHEN sem_indicador_banca IS NULL THEN 'verde'
+              ELSE sem_indicador_banca
+          END AS sem_indicador_banca,
+          CASE
+              WHEN es_dni_cuestionado IS NULL THEN 0
+              ELSE es_dni_cuestionado
+          END AS es_dni_cuestionado,
+          CASE
+              WHEN es_cliente_factura_apocrifa IS NULL THEN 0
+              ELSE es_cliente_factura_apocrifa
+          END AS es_cliente_factura_apocrifa,
+          CASE
+              WHEN es_baja_contable IS NULL THEN 0
+              ELSE es_baja_contable
+          END AS es_baja_contable,
+          CASE
+              WHEN es_oficios_judiciales IS NULL THEN 0
+              ELSE es_oficios_judiciales
+          END AS es_oficios_judiciales,
+          CASE
+              WHEN es_prestamo_reprogramado IS NULL THEN 0
+              ELSE es_prestamo_reprogramado
+          END AS es_prestamo_reprogramado,
+          CASE
+              WHEN es_inhabilitado_cambios_bcra IS NULL THEN 0
+              ELSE es_inhabilitado_cambios_bcra
+          END AS es_inhabilitado_cambios_bcra,
+          CASE
+              WHEN es_irrecuperable_cuenta_orden IS NULL THEN 0
+              ELSE es_irrecuperable_cuenta_orden
+          END AS es_irrecuperable_cuenta_orden,
+          CASE
+              WHEN es_marca_legales IS NULL THEN 0
+              ELSE es_marca_legales
+          END AS es_marca_legales
+   FROM de_bsj_2cur.dim_clientes_no_clientes no_cli
+   LEFT JOIN total_curado cur ON no_cli.id_persona = cur.id_persona)
+SELECT *
+FROM total_no_clientes

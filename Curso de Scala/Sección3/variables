@@ -1,0 +1,50 @@
+/*
+val = Variable de tipo inmutable
+    VALUE
+    No se pueden cambiar el valor xd
+var = Variable dinámica
+    VARIABLE
+*/
+
+
+/*
+Variables INMUTABLES
+*/
+val x = 10
+val z = 10.3
+
+
+/*
+Variables con tipo de dato declarados y no declarados
+*/
+
+val r: String = "alberto"
+val v = "alberto"
+
+var nombre = "ñoño"
+
+
+print(nombre)
+
+
+
+/* Variables LAZYs*/
+
+
+lazy val x1 = 1/0
+
+// No se inicializa la variable, solo se registra
+// pero no esta realmente creada hasta que se 
+// interactue con esa variable
+
+print(x1) // <--- Ahí muere
+
+
+// Bloques, ejecuta una línea detras de la otra
+
+{
+    println("hola")
+    println("adios")
+}
+
+
